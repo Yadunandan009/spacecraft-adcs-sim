@@ -1,0 +1,86 @@
+# Simulation-only vehicle definition for spacecraft-adcs-sim.
+#
+# Nothing in this file is hardware-validated. Tags used:
+#   MIRRORED   - copied from ~/magnetorquer-detumble/spacecraft.yaml; that
+#                file is the source of truth for the bus, this is a manual
+#                mirror for standalone use here. Re-sync by hand if it
+#                changes there.
+#   CAD_ONLY   - taken from a CAD design that has not been fabricated.
+#   ASSUMED    - engineering-estimate placeholder for this sim study.
+
+bus:
+  # MIRRORED from magnetorquer-detumble/spacecraft.yaml — keep in sync.
+  mass_kg: 4.0
+  dimensions_m: [0.1, 0.1, 0.34]
+  inertia_kgm2:
+    - [0.0419, 0.0,    0.0]
+    - [0.0,    0.0419, 0.0]
+    - [0.0,    0.0,    0.0067]
+  magnetometer_noise_std_uT: 0.4
+  magnetorquer_max_dipole_moment_Am2: 1.0
+
+reaction_wheel:
+  # CAD_ONLY — no physical flywheel exists. Inertia taken from the CAD
+  # model pending print; state this explicitly wherever this sim is
+  # described.
+  flywheel_inertia_kgm2: 2.0e-5
+  max_wheel_speed_rad_s: 600.0
+  momentum_capacity_Nms: 0.012        # = flywheel_inertia * max_wheel_speed
+  max_motor_torque_Nm: 0.001
+  desaturation_threshold_fraction: 0.8  # hand off to magnetorquer at 80% of
+                                          # momentum_capacity
+  validation_status: "CAD_ONLY - not fabricated"
+
+environment:
+  # ASSUMED default: simple tilted-dipole field, matching what's validated
+  # on the magnetorquer-detumble hardware bench (no orbit propagation there).
+  model: "tilted_dipole"
+  dipole_moment_Tm3: 8.0e15   # standard Earth dipole magnitude, ASSUMED tilt
+  tilt_deg: 11.0
+  # Optional higher-fidelity path: set model to "ahrs_igrf" and supply an
+  # orbit (see magnetorquer-detumble/spacecraft.yaml's `orbit` block) once
+  # the `ahrs` geodesy module is wired in.
+  alternate_model: "ahrs_igrf"
+
+estimators:
+  static:
+    method: "QUEST"           # or "TRIAD"
+    source: "ahrs"
+    sun_sensor_noise_std_deg: 0.5   # ASSUMED simulated sun sensor accuracy
+  dynamic:
+    enabled: false            # MEKF — optional, enable once static
+                               # estimator is validated in sim
+    method: "MEKF"
+    gyro_noise_std_deg_s: 0.05        # ASSUMED, angle random walk term
+    gyro_bias_stability_deg_hr: 5.0   # ASSUMED
+
+pointing_controller:
+  type: "PD"                  # or "LQR"
+  status: "not designed yet"
+
+monte_carlo:
+  n_runs: 300
+  sampling: "uniform"          # "uniform" | "gaussian" | "latin_hypercube"
+  dispersions:
+    initial_tumble_rate_deg_s: {min: 5.0, max: 30.0}
+    initial_attitude: "random_quaternion"
+    magnetometer_noise_std_uT: {min: 0.2, max: 0.8}
+    gyro_bias_stability_deg_hr: {min: 1.0, max: 10.0}
+    motor_torque_constant_tolerance_pct: {min: -10.0, max: 10.0}
+    flywheel_inertia_tolerance_pct: {min: -5.0, max: 5.0}  # tied to
+                                                             # realistic
+                                                             # 3D-print
+                                                             # dimensional
+                                                             # tolerance
+    coil_resistance_drift_pct: {min: -5.0, max: 5.0}        # temperature-
+                                                              # driven
+    magnetic_field_model_error_pct: {min: -3.0, max: 3.0}
+    residual_dipole_Am2: {min: 0.0, max: 0.01}
+    gravity_gradient_torque_scale: {min: 0.8, max: 1.2}
+  metrics_logged:
+    - detumble_settling_time_s
+    - final_pointing_error_deg
+    - wheel_saturated_before_desaturation
+    - estimator_convergence_time_s
+    - estimator_steady_state_covariance
+  status: "not started - blocked on reaction wheel + estimator blocks existing"
