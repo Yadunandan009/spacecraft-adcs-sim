@@ -4,7 +4,8 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Project
 
-Simulation-only spacecraft ADCS study, built in FASTCASST: rigid-body
+Simulation-only spacecraft ADCS study, built in Basilisk (AVS Lab, CU
+Boulder — https://github.com/AVSLab/basilisk): rigid-body
 dynamics (ported/extended from the hardware-validated model) + reaction
 wheel actuator + attitude estimators (TRIAD/QUEST/MEKF) + Monte Carlo
 dispersion analysis. This is **not** a hardware-validated project — no
@@ -22,22 +23,52 @@ SIL environment because the flywheel print didn't match the motor's
 inertia/torque envelope — de-risking the algorithm before committing to a
 print.
 
+## Collaboration mode (read this before writing any algorithm code)
+
+This repo is where the estimator/attitude-determination work lives (TRIAD,
+Davenport, QUEST, MEKF) — the exact material the user is trying to learn,
+not just ship. Same 🟢🟡🔴 discipline as `~/magnetorquer-detumble` (full
+rationale there):
+
+- 🟢 Green: explain concepts, review an existing derivation, check
+  conventions/units, suggest test cases, Socratic questioning.
+- 🟡 Yellow: debugging, numerical methods, controller/estimator design —
+  only after the user has an attempt to show.
+- 🔴 Red — do not write outright: the rigid-body dynamics extension, any
+  estimator (TRIAD/Davenport/QUEST/MEKF), the reaction wheel actuator
+  block, the pointing controller, the momentum-desaturation logic, the
+  Monte Carlo driver's core sampling/aggregation logic. These are the
+  "I understand spacecraft GNC" half of the portfolio story — if Claude
+  writes them, that claim becomes false. If asked to implement one
+  directly, ask for the derivation/attempt first instead of complying.
+
+Ask "what's your attempt?" before writing red-zone code, even if a fast
+answer is obviously possible. Basilisk integration/plumbing (module
+wiring, message setup), YAML config, docs, and test harness scaffolding are
+not red-zone — those are fine to help with directly. The line: Basilisk
+supplies simulated truth/sensor data and executes actuator commands; the
+estimator and controller that sit between those are student-written.
+
 ## Before writing block code
 
-FASTCASST is not yet integrated into this repo. Check what already exists
-in FASTCASST's `libraries/` for the satellite vehicle type (it already
-supports SIMONLY/SIL against a "satellite" vehicle per its own README) —
-extend the existing dynamics/actuator blocks rather than duplicating them.
-The one-`.h`/`.cpp`-pair-per-SysML-block convention needs confirming against
-the actual cloned framework before assuming it applies verbatim.
+Basilisk (https://github.com/AVSLab/basilisk,
+https://avslab.github.io/basilisk/) is not yet installed/integrated into
+this repo — replacing the earlier FASTCASST plan, which was written around
+an unverified block convention. Before writing any block: confirm the
+exact module/class names against the installed version's docs (Basilisk's
+API shifts between versions), and note the MRP-vs-quaternion attitude
+representation mismatch flagged in
+[docs/architecture.md](docs/architecture.md) — Basilisk's hub state is
+MRPs, this project's own dynamics work is quaternions.
 
 ## Architecture and plan
 
 - [docs/architecture.md](docs/architecture.md) — dynamics/actuator/estimator
-  block plan, environment model choice (tilted dipole vs. `ahrs` IGRF),
-  momentum desaturation logic
+  block plan (Basilisk modules), environment model choice (centered-dipole
+  vs. Basilisk's own WMM model), momentum desaturation logic
 - [docs/monte_carlo_plan.md](docs/monte_carlo_plan.md) — dispersion campaign:
   what gets randomized, what gets measured, sample size, driver-script shape
+  (Basilisk's `MonteCarlo.Controller` utility)
 - `vehicle.yaml` — parameter scaffold for the reaction wheel, estimators,
   and Monte Carlo dispersion ranges. Everything in it is `ASSUMED` or
   `CAD_ONLY` — there is no hardware-measured value in this repo by design.
@@ -53,5 +84,5 @@ once both sides have real numbers.
 ## Timeline note
 
 This track is pure software and doesn't need to wait on hardware parts
-(coils/STM32/DRV8833) arriving — it can run in parallel with
+(coils/STM32/L298N) arriving — it can run in parallel with
 `magnetorquer-detumble`'s hardware bring-up.

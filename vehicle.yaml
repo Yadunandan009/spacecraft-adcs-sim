@@ -34,18 +34,24 @@ reaction_wheel:
 environment:
   # ASSUMED default: simple tilted-dipole field, matching what's validated
   # on the magnetorquer-detumble hardware bench (no orbit propagation there).
+  # Basilisk module: Basilisk.simulation.magneticFieldCenteredDipole
   model: "tilted_dipole"
   dipole_moment_Tm3: 8.0e15   # standard Earth dipole magnitude, ASSUMED tilt
   tilt_deg: 11.0
-  # Optional higher-fidelity path: set model to "ahrs_igrf" and supply an
-  # orbit (see magnetorquer-detumble/spacecraft.yaml's `orbit` block) once
-  # the `ahrs` geodesy module is wired in.
-  alternate_model: "ahrs_igrf"
+  # Optional higher-fidelity path: Basilisk.simulation.magneticFieldWMM
+  # (World Magnetic Model) plus an orbit/epoch (see
+  # magnetorquer-detumble/spacecraft.yaml's `orbit` block) -- Basilisk
+  # supplies this natively, no external field-model package needed.
+  alternate_model: "basilisk_wmm"
 
 estimators:
   static:
     method: "QUEST"           # or "TRIAD"
-    source: "ahrs"
+    # Implementation is self-derived/self-written -- see CLAUDE.md's
+    # collaboration mode. "ahrs" is a reference/oracle to check numerical
+    # results against once you have your own implementation, not the
+    # thing this repo calls at runtime.
+    reference_check: "ahrs"
     sun_sensor_noise_std_deg: 0.5   # ASSUMED simulated sun sensor accuracy
   dynamic:
     enabled: false            # MEKF — optional, enable once static
